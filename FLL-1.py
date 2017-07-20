@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
 import cv2
+import os
 
 
 class LaneDetect:
@@ -73,6 +74,8 @@ class LaneDetect:
 		marker_array = np.array(self.validity_marker)
 
 		# average all detected lanes when the data is valid
+		if [0] in np.sum(marker_array, axis=0):
+			return None
 		filtered_lane = np.sum(lane_array, axis=0) / np.sum(marker_array, axis=0)
 		filtered_lane = np.array(filtered_lane, dtype=int)  # convert to int for coordinates
 		filtered_lane = convert_to_tuple(filtered_lane)  # convert back to opencv supported format
@@ -94,8 +97,14 @@ class LaneDetect:
 	def _draw_lane_layer(self):
 		lanes = self.filtered_lane  # only to make the variable shorter for readability
 		lane_image = np.zeros_like(self.output_frame)
-		cv2.line(lane_image, lanes[0][0], lanes[0][1], color=(0, 0, 200), thickness=10)
-		cv2.line(lane_image, lanes[1][0], lanes[1][1], color=(0, 0, 200), thickness=10)
+
+		try:
+			cv2.line(lane_image, lanes[0][0], lanes[0][1], color=(0, 0, 200), thickness=10)
+			cv2.line(lane_image, lanes[1][0], lanes[1][1], color=(0, 0, 200), thickness=10)
+		except TypeError:
+			print("type error")
+		finally:
+			pass
 		return lane_image
 
 	# method to find lane lines using polyfit
@@ -120,6 +129,8 @@ class LaneDetect:
 		xs = [0, 0]
 		for i in range(2):
 			xs[i] = np.uint32(p1(boarder[i]))  # calculate x given y
+			if xs[i] < 0 or xs[i] > boarder[2] * 2:
+				return [(0, 0), (0, 0)]
 		return [(xs[0], boarder[0]), (xs[1], boarder[1])]  # return a line
 
 	# the core function for computer vision
@@ -148,9 +159,9 @@ class LaneDetect:
 
 		# This time we are defining a four sided polygon to mask
 		imshape = self.input_frame.shape
-		y_level = 320
-		vertices = np.array([[(75, imshape[0]), (imshape[1] - 55, imshape[0]),
-		                      (530, y_level), (430, y_level)]],
+		y_level = int(imshape[0] * 0.6)
+		vertices = np.array([[(int(imshape[1] * .08), imshape[0]), (int(imshape[1] * .93), imshape[0]),
+		                      (int(imshape[1] * .55), y_level), (int(imshape[1] * .45), y_level)]],
 		                    dtype=np.int32)
 		cv2.fillPoly(patch1_polygon_mask, vertices, ignore_mask_color)
 		patch2_valid_mask = cv2.bitwise_and(stage3_edges_img, patch1_polygon_mask)
@@ -179,34 +190,43 @@ class LaneDetect:
 		for line in hough_lines:
 			for x1, y1, x2, y2 in line:
 				cv2.line(patch3_hough_line_mask, (x1, y1), (x2, y2), (255, 0, 0), 2)
-				# ignore lines that are horizontal
-				if abs(x1 - x2) < abs(y1 - y2):
+				if abs(x1 - x2) > 2 * abs(y1 - y2):  # ignore lines that are too horizontal
 					continue
 				# these are lines mostly on the left
-				elif 480 - x1 + 480 - x2 > 0:
-					left_lines.append(line)
-				# these are lines mostly on the right
-				elif x1 > 480 or x2 > 480:
+				elif (x1 - x2) * (y1 - y2) < 0:
 					right_lines.append(line)
-				# if there're lines that cannot be categorized, print message, for debug
-				else:
+				# these are lines mostly on the right
+				elif (x1 - x2) * (y1 - y2) > 0:
+					left_lines.append(line)
+				# if y1 == y2, it will be ignored by the first "if"
+				# if x1 == x2, then consider it's location by determine if it is on the left or right
+				elif x1 < imshape[1] / 2:
+					left_lines.append(line)
+				elif x1 > imshape[1] / 2:
+					right_lines.append(line)
+				else:  # if there're lines that cannot be categorized, print message, for debug
 					print("This line is not categorized: ", line)
 				# generate patch that only contains identified lines
 
 		if 4 in self.output_level:  # hough lines layer
-			self.processed_image = cv2.addWeighted(patch3_hough_line_mask, 1.0, self.processed_image, 1.0, 0)
+			self.processed_image = cv2.addWeighted(patch3_hough_line_mask, 1.0,
+			                                       self.processed_image, 1.0, 0)
 
 		# find fit using hough line's coordinates
-		left_lane = self._find_lane(left_lines, boarder=[y_level, imshape[0]])
-		right_lane = self._find_lane(right_lines, boarder=[y_level, imshape[0]])
-
+		left_lane = self._find_lane(left_lines, boarder=[y_level, imshape[0], imshape[1] / 2])
+		right_lane = self._find_lane(right_lines, boarder=[y_level, imshape[0], imshape[1] / 2])
 		return [left_lane, right_lane]
 
 
 def main():
 	# initialize LaneDetect object, giving output level and smooth level
-	detector = LaneDetect(output_level={1, 3, 4, 5}, smooth_level=10)
-	video_file = cv2.VideoCapture('./test_videos/solidYellowLeft.mp4')  # open video file
+
+	test_video_list = os.listdir('./test_videos/')
+	video_to_run = 2  # can choose from 1, 2, 3
+	# play with the output_level parameter
+	# default is {1, 5}
+	detector = LaneDetect(output_level={2, 3, 4, 5}, smooth_level=10)
+	video_file = cv2.VideoCapture('./test_videos/' + test_video_list[video_to_run])  # open video file
 	fps = video_file.get(cv2.CAP_PROP_FPS)  # get fps
 	size = (int(video_file.get(cv2.CAP_PROP_FRAME_WIDTH)),
 	        int(video_file.get(cv2.CAP_PROP_FRAME_HEIGHT)))  # get video resolution
@@ -229,8 +249,9 @@ def main():
 
 
 def main2():
+	test_image_list = os.listdir('./test_images/')
 	detector = LaneDetect(only_image=True)  # initialize LaneDetect object with only_image option
-	image = mpimg.imread('./test_images/solidWhiteRight.jpg')  # read in picture
+	image = mpimg.imread('./test_images/' + test_image_list[0])  # read in picture
 	processed_image = detector.frame_process(image)  # pass the picture for process
 	plt.imshow(processed_image)  # show the processed picture
 	plt.show()
