@@ -1,4 +1,6 @@
-# **Finding Lane Lines on the Road** 
+# ***REFER TO README.pdf***
+
+# **Finding Lane Lines on the Road**
 
 -- ***by Meng Wang***
 
@@ -11,26 +13,22 @@ The goals / steps of this project are the following:
 * Make a pipeline that finds lane lines on the road
 * Reflect on your work in a written report
 
-
-[//]: # (Image References)
-
-[image1]: ./examples/grayscale.jpg "Grayscale"
-
 ---
 
 ### Reflection
 
 ### 1. Describe your pipeline. As part of the description, explain how you modified the draw_lines() function.
 
-My pipeline consisted of 6 steps: 
+
+My pipeline consisted of 6 steps:
+ 
 1. Converted the images to grayscale
 
-<div align=center>
-![alt text](./example/grayscale.jpg)
-</div>
+![Gray Scale](./examples/grayscale.jpg)
 
 2. Apply Gaussian blur
 3. Using Canny edge detection to find edges
+![Canny Edge](./mark_down_lib/canny_edge.png)
 4. Apply a polygon to mask unwanted edges
 5. Find lines using Hough line detection method
 - Find left and right lane lines using the vertices of the detected Hough lines.
