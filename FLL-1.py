@@ -225,7 +225,7 @@ def main():
 	video_to_run = 2  # can choose from 1, 2, 3
 	# play with the output_level parameter
 	# default is {1, 5}
-	detector = LaneDetect(output_level={2, 3, 4, 5}, smooth_level=10)
+	detector = LaneDetect(output_level={1, 2, 3, 4, 5}, smooth_level=10)
 	video_file = cv2.VideoCapture('./test_videos/' + test_video_list[video_to_run])  # open video file
 	fps = video_file.get(cv2.CAP_PROP_FPS)  # get fps
 	size = (int(video_file.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -250,7 +250,8 @@ def main():
 
 def main2():
 	test_image_list = os.listdir('./test_images/')
-	detector = LaneDetect(only_image=True)  # initialize LaneDetect object with only_image option
+	detector = LaneDetect(output_level={2, 3, 4, 5},
+	                      only_image=True)  # initialize LaneDetect object with only_image option
 	image = mpimg.imread('./test_images/' + test_image_list[0])  # read in picture
 	processed_image = detector.frame_process(image)  # pass the picture for process
 	plt.imshow(processed_image)  # show the processed picture
@@ -258,5 +259,5 @@ def main2():
 
 
 if __name__ == '__main__':
-	main()  # entrance for video process
-	# main2()  # entrance for picture process
+	main()  # entrance for video processing
+	# main2()  # entrance for picture processing
